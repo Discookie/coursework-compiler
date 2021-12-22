@@ -1,0 +1,15 @@
+[package]
+name = "coursework-compiler"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+lalrpop = "0.19"
+
+[dependencies]
+derive_more = "0.99"
+iced-x86 = "1.15"
+lalrpop-util = { version = "0.19", features = ["lexer"] }
+regex = "1.5"

@@ -1,0 +1,190 @@
+use crate::parser::ast::*;
+
+grammar;
+
+pub AST: AST = <contents:Function*> => AST {<>};
+
+Function: Function = 
+    "fn" <name:Name> "(" <args:Comma<TypedVar>> ")" <ret:("->" <Typename>)?> <body:Block<Statement>> => 
+        Function { <> };
+
+// Statements
+
+Statement = {
+    DefineStmt,
+    AssignStmt,
+    FnCallStmt,
+    IfStmt,
+    WhileStmt,
+    ForStmt,
+    ForEqStmt,
+    ReturnStmt,
+    <body:Block<Statement>> => Statement::Block {<>}
+};
+
+DefineStmt: Statement = {
+    "let" <def:TypedVar> "=" <value:Expr> ";" => Statement::Define {
+        name: def.name,
+        typename: Some(def.typename),
+        value
+    },
+    "let" <name: Name> "=" <value:Expr> ";" => Statement::Define {
+        name,
+        typename: None,
+        value
+    }
+};
+
+AssignStmt: Statement = <name:Name> <op: AssignOp> <value:Expr> ";" => Statement::Assign {<>};
+FnCallStmt: Statement = <name:Name> "(" <args:Comma<Expr>> ")" ";" => Statement::FnCall {<>};
+
+IfStmt: Statement = {
+    "if" <cond:Expr> <body:Block<Statement>> => Statement::If { cond, body, else_body: None },
+    "if" <cond:Expr> <body:Block<Statement>> "else" <else_body:Block<Statement>> => Statement::If { cond, body, else_body: Some(else_body) },
+    "if" <cond:Expr> <body:Block<Statement>> "else" <else_expr:IfStmt> => Statement::If { cond, body, else_body: Some(vec![else_expr]) }
+};
+WhileStmt: Statement = "while" <cond:Expr> <body:Block<Statement>> => Statement::While {<>};
+ForStmt: Statement = "for" <name:Name> "in" <from:Expr> ".." <to:Expr> <body:Block<Statement>> => Statement::For {<>};
+ForEqStmt: Statement = "for" <name:Name> "in" <from:Expr> "..=" <to:Expr> <body:Block<Statement>> => Statement::ForEq {<>};
+
+ReturnStmt: Statement = "return" <expr:Expr> ";" => Statement::Return {<>};
+
+// Expressions, prioritized
+
+Expr = Expr_BinOp_1;
+
+// ||
+Expr_BinOp_1 = { BinOpExpr<Expr_BinOp_2, BinOp_1, Expr_BinOp_1>, Expr_BinOp_2, };
+// &&
+Expr_BinOp_2 = { BinOpExpr<Expr_BinOp_3, BinOp_2, Expr_BinOp_2>, Expr_BinOp_3, };
+// ==, !=, etc.
+Expr_BinOp_3 = { BinOpExpr<Expr_BinOp_4, BinOp_3, Expr_BinOp_4>, Expr_BinOp_4, };
+// |
+Expr_BinOp_4 = { BinOpExpr<Expr_BinOp_5, BinOp_4, Expr_BinOp_4>, Expr_BinOp_5, };
+// ^
+Expr_BinOp_5 = { BinOpExpr<Expr_BinOp_6, BinOp_5, Expr_BinOp_5>, Expr_BinOp_6, };
+// &
+Expr_BinOp_6 = { BinOpExpr<Expr_BinOp_7, BinOp_6, Expr_BinOp_6>, Expr_BinOp_7, };
+// <<, >>
+Expr_BinOp_7 = { BinOpExpr<Expr_BinOp_8, BinOp_7, Expr_BinOp_7>, Expr_BinOp_8, };
+// +, -
+Expr_BinOp_8 = { BinOpExpr<Expr_BinOp_9, BinOp_8, Expr_BinOp_8>, Expr_BinOp_9, };
+// *, /, %
+Expr_BinOp_9 = { BinOpExpr<Expr_UnaryOp, BinOp_9, Expr_BinOp_9>, Expr_UnaryOp, };
+// Unary
+Expr_UnaryOp: Expr = {
+    <op:UnaryOp> <right:Boxed<Expr_Value>> => Expr::UnaryOp {<>},
+    Expr_Value
+};
+// Values
+Expr_Value: Expr = {
+    <name:Name> => Expr::Var {<>},
+    <value:Value> => Expr::Const {<>},
+    <name:Name> "(" <args:Comma<Expr>> ")" => Expr::FnCall {<>},
+    "(" <expr:Boxed<Expr>> ")" => Expr::Paren {<>}
+}
+
+BinOpExpr<Left, Op, Right>: Expr =
+    <left:Boxed<Left>> <op:Op> <right:Boxed<Right>> => Expr::BinOp {<>};
+
+// Operators
+
+AssignOp: AssignOp = {
+    "=" => AssignOp::Equal,
+
+    "+=" => AssignOp::Add,
+    "-=" => AssignOp::Sub,
+    "*=" => AssignOp::Mul,
+    "/=" => AssignOp::Div,
+    "%=" => AssignOp::Mod,
+
+    "&=" => AssignOp::BinAnd,
+    "^=" => AssignOp::Xor,
+    "|=" => AssignOp::BinOr,
+
+    ">>=" => AssignOp::Rsh,
+    "<<=" => AssignOp::Lsh,
+}
+
+UnaryOp: UnaryOp = {
+    "+" => UnaryOp::Pos,
+    "-" => UnaryOp::Neg,
+    "!" => UnaryOp::Not,
+}
+
+BinOp_1: BinOp = "||" => BinOp::Or;
+BinOp_2: BinOp = "&&" => BinOp::And;
+BinOp_3: BinOp = {
+    "==" => BinOp::Eq,
+    "!=" => BinOp::NEq,
+    "<" => BinOp::Lt,
+    ">" => BinOp::Gt,
+    "<=" => BinOp::LEq,
+    ">=" => BinOp::GEq
+}
+BinOp_4: BinOp = "|" => BinOp::BinOr;
+BinOp_5: BinOp = "^" => BinOp::Xor;
+BinOp_6: BinOp = "&" => BinOp::BinAnd;
+BinOp_7: BinOp = {
+    "<<" => BinOp::Lsh,
+    ">>" => BinOp::Rsh
+};
+BinOp_8: BinOp = {
+    "+" => BinOp::Plus,
+    "-" => BinOp::Minus
+};
+BinOp_9: BinOp = {
+    "*" => BinOp::Mul,
+    "/" => BinOp::Div,
+    "%" => BinOp::Mod
+};
+
+
+// Names, numbers, variables, types
+
+Value: Value = {
+    "true" => Value::Bool(true),
+    "false" => Value::Bool(false),
+    r"[0-9]+" => {
+        Value::Int(<>.parse::<isize>().unwrap())
+    }
+}
+
+TypedVar: TypedVar = <name:Name> ":" <typename:Typename> => TypedVar {<>};
+
+Typename: Typename = {
+    "int" => Typename::Int,
+    "bool" => Typename::Bool,
+};
+
+Name = Stringify<r"[a-zA-Z_][0-9a-zA-Z_]*">;
+
+// Blocks, strings, lists
+
+Boxed<T>: Box<T> = T => Box::from(<>);
+
+Stringify<T>: String = {
+    T => String::from(<>)
+};
+
+Bracket<T> = {
+    "(" <Bracket<T>> ")",
+    T
+};
+
+Block<T> = "{" <List<T>> "}";
+
+Comma<T> = SepList<T, ",">;
+Semi<T> = SepList<T, ";">;
+
+SepList<T, S>: Vec<T> = {
+    <mut v:(<T> S)*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+List<T>: Vec<T> = T*;

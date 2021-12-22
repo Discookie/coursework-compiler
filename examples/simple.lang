@@ -1,0 +1,15 @@
+fn some_fn(a: int, b: int, c: int) -> int {
+    let e = 2;
+    let f: bool = b + c > 20;
+    if a < 5 && f {
+        while a > 0 {
+            a -= 1;
+            e += c * a * a + b * a + 3;
+        }
+    }
+    return a + e;
+}
+
+fn main() {
+    write(some_fn(2, 3, read_int()));
+}
