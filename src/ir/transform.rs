@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, mem};
+use std::{collections::HashMap, mem};
 
 use rustc_index::vec::*;
 
@@ -12,15 +12,16 @@ use crate::parser::{
 };
 
 #[derive(Debug, Clone)]
-pub struct TransformCtxt {
+pub struct TransformCtxt<'a> {
     pub variable_map: HashMap<String, Option<Local>>,
-    pub function_map: HashMap<FnDescriptor, (ast::Function, FunctionId)>,
+    pub function_map: &'a HashMap<FnDescriptor, (ast::Function, FunctionId)>,
 }
 
-pub fn convert_ty(ty: ast::Typename) -> Typename {
+pub fn convert_ty(ty: Option<ast::Typename>) -> Typename {
     match ty {
-        ast::Typename::Bool => Typename::Bool,
-        ast::Typename::Int => Typename::Int,
+        Some(ast::Typename::Bool) => Typename::Bool,
+        Some(ast::Typename::Int) => Typename::Int,
+        None => Typename::None,
     }
 }
 
@@ -71,6 +72,13 @@ pub fn convert_assign(op: ast::AssignOp) -> Option<BinOp> {
     }
 }
 
+pub fn convert_descriptor(desc: ast::FnDescriptor) -> FnDescriptor {
+    FnDescriptor {
+        name: desc.name,
+        args: desc.args.into_iter().map(|x| convert_ty(Some(x))).collect(),
+    }
+}
+
 /// Result will be stored in .1
 pub fn generate_expr(expr: ast::Expr, tcx: &TransformCtxt, function: &mut Function, mut block: BasicBlockId) -> (BasicBlockId, Local) {
     macro_rules! block {
@@ -100,7 +108,7 @@ pub fn generate_expr(expr: ast::Expr, tcx: &TransformCtxt, function: &mut Functi
 
             let (fn_data, fn_id) = &tcx.function_map[&FnDescriptor { name, args }];
 
-            let ret_ty = fn_data.ret.map(|ty| convert_ty(ty)).expect("fn typecheck failed");
+            let ret_ty = convert_ty(fn_data.ret);
             let ret = function.locals.push(ret_ty);
 
             let mut term = Terminator::FnCall {
@@ -140,10 +148,8 @@ pub fn generate_expr(expr: ast::Expr, tcx: &TransformCtxt, function: &mut Functi
             unpack!(let right_local = generate_expr(*right));
 
             let target_type = match op.creates_type() {
-                TypeCreation::Certain(x) =>
-                    x.map(|ty| convert_ty(ty)).expect("fn typecheck failed"),
-                TypeCreation::Same => 
-                    function.locals[left_local]
+                TypeCreation::Certain(x) => convert_ty(x),
+                TypeCreation::Same => function.locals[left_local]
             };
 
             let target_local = function.locals.push(target_type);
@@ -181,7 +187,22 @@ pub fn generate_expr(expr: ast::Expr, tcx: &TransformCtxt, function: &mut Functi
 
 /// Returns true if block returns
 pub fn generate_block(body: Vec<ast::Statement>, tcx: &mut TransformCtxt, function: &mut Function, mut block: BasicBlockId) -> (BasicBlockId, bool) {
-    todo!()
+    macro_rules! unpack {
+        (let $($vars:ident),+ = $expr:ident ($arg:expr)) => {
+            let (new_block, $($vars),+) = $expr($arg, tcx, function, block);
+            block = new_block;
+        }
+    }
+
+    for stmt in body {
+        unpack!(let stmt_returns = generate_stmt(stmt));
+
+        if stmt_returns {
+            return (block, true);
+        }
+    }
+
+    (block, false)
 }
 
 /// Returns true if stmt is a return
@@ -472,7 +493,109 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
             (final_block, false)
         }
 
-        _ => todo!()
+        ast::Statement::For { name, from, to, mut body } => {
+            unpack!(let for_local = generate_expr(from));
+            unpack!(let until_local = generate_expr(to));
+
+            tcx.variable_map.insert(name.clone(), Some(for_local));
+            tcx.variable_map.insert(format!("{}$$until", name), Some(until_local));
+
+            body.push(ast::Statement::Assign {
+                name: name.clone(),
+                op: ast::AssignOp::Add,
+                value: ast::Expr::Const {
+                    value: ast::Value::Int(1)
+                },
+            });
+
+            let dummy_stmt = ast::Statement::While {
+                cond: ast::Expr::BinOp {
+                    left: Box::new(ast::Expr::Var { name: name.clone() }),
+                    op: ast::BinOp::Lt,
+                    right: Box::new(ast::Expr::Var { name: format!("{}$$until", name) }),
+                },
+                body,
+            };
+
+            generate_stmt(dummy_stmt, tcx, function, block)
+        }
+
+        ast::Statement::ForEq { name, from, mut to, body } => {
+            to = ast::Expr::BinOp {
+                left: Box::new(to),
+                op: ast::BinOp::Plus,
+                right: Box::new(ast::Expr::Const { value: ast::Value::Int(1) } ),
+            };
+
+            generate_stmt(ast::Statement::ForEq {
+                name,
+                from,
+                to,
+                body,
+            }, tcx, function, block)
+        }
+    }
+}
+
+pub fn generate_function(ast_function: ast::Function, function_map: &HashMap<FnDescriptor, (ast::Function, FunctionId)>) -> Function {
+    let mut function = Function {
+        body: IndexVec::new(),
+        locals: IndexVec::with_capacity(ast_function.args.len() + 1),
+        arg_count: ast_function.args.len(),
+    };
+
+    let mut tcx = TransformCtxt {
+        variable_map: HashMap::new(),
+        function_map,
+    };
+
+    function.locals.push(convert_ty(ast_function.ret));
+
+    for ast::TypedVar { name, typename } in ast_function.args {
+        let local = function.locals.push(convert_ty(Some(typename)));
+
+        tcx.variable_map.insert(name, Some(local));
+    }
+
+    let start = function.body.push(BasicBlock::new(Terminator::Return));
+
+    generate_block(ast_function.body, &mut tcx, &mut function, start);
+
+    function
+}
+
+pub fn generate_ir(ast: ast::AST) -> IR {
+    let mut functions = IndexVec::<FunctionId, Option<Function>>::new();
+    let function_map = {
+        let mut function_map = HashMap::new();
+
+        for func in ast.contents {
+            function_map.insert(
+                convert_descriptor(func.descriptor()),
+                (
+                    func,
+                    functions.push(None)
+                )
+            );
+        }
+
+        function_map
+    };
+
+    for (_, (func, id)) in function_map.iter() {
+        functions[*id] = Some(generate_function(func.clone(), &function_map));
+    }
+
+    let functions = functions.into_iter()
+        .map(|func| func.expect("Fn generation missed a fn"))
+        .collect();
+    let descriptors = function_map.into_iter()
+        .map(|(descriptor, (_, id))| (descriptor, id))
+        .collect();
+
+    IR {
+        descriptors,
+        functions
     }
 }
 

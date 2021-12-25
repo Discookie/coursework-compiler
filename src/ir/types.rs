@@ -28,7 +28,7 @@ newtype_index!(
 );
 
 pub struct IR {
-    pub descriptors: HashMap<FnDescriptor, Function>,
+    pub descriptors: HashMap<FnDescriptor, FunctionId>,
     pub functions: IndexVec<FunctionId, Function>
 }
 
