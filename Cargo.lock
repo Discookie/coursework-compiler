@@ -12,6 +12,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
+
+[[package]]
 name = "ascii-canvas"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -79,6 +85,8 @@ dependencies = [
  "lalrpop",
  "lalrpop-util",
  "regex",
+ "rustc_index",
+ "rustc_serialize",
 ]
 
 [[package]]
@@ -397,6 +405,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
+name = "rustc_index"
+version = "0.0.0"
+source = "git+https://github.com/rust-lang/rust.git?branch=stable#f1edd0429582dd29cccacaf50fd134b05593bd9c"
+dependencies = [
+ "arrayvec",
+ "rustc_macros",
+ "rustc_serialize",
+]
+
+[[package]]
+name = "rustc_macros"
+version = "0.1.0"
+source = "git+https://github.com/rust-lang/rust.git?branch=stable#f1edd0429582dd29cccacaf50fd134b05593bd9c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "synstructure",
+]
+
+[[package]]
+name = "rustc_serialize"
+version = "0.0.0"
+source = "git+https://github.com/rust-lang/rust.git?branch=stable#f1edd0429582dd29cccacaf50fd134b05593bd9c"
+dependencies = [
+ "indexmap",
+ "smallvec",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -462,6 +500,18 @@ checksum = "8daf5dd0bb60cbd4137b1b587d2fc0ae729bc07cf01cd70b36a1ed5ade3b9d59"
 dependencies = [
  "proc-macro2",
  "quote",
+ "unicode-xid",
+]
+
+[[package]]
+name = "synstructure"
+version = "0.12.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
  "unicode-xid",
 ]
 

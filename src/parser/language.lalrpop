@@ -57,7 +57,7 @@ Expr = Expr_BinOp_1;
 Expr_BinOp_1 = { BinOpExpr<Expr_BinOp_2, BinOp_1, Expr_BinOp_1>, Expr_BinOp_2, };
 // &&
 Expr_BinOp_2 = { BinOpExpr<Expr_BinOp_3, BinOp_2, Expr_BinOp_2>, Expr_BinOp_3, };
-// ==, !=, etc.
+// ==, !=, etc. - needs explicit brackets
 Expr_BinOp_3 = { BinOpExpr<Expr_BinOp_4, BinOp_3, Expr_BinOp_4>, Expr_BinOp_4, };
 // |
 Expr_BinOp_4 = { BinOpExpr<Expr_BinOp_5, BinOp_4, Expr_BinOp_4>, Expr_BinOp_5, };

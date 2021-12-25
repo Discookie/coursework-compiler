@@ -2,7 +2,7 @@ use derive_more::Display;
 
 #[derive(Clone, Debug, Display)]
 #[display(fmt = "{}", "format_fns(contents)")]
-pub struct AST{
+pub struct AST {
     pub contents: Vec<Function>
 }
 
@@ -171,8 +171,8 @@ pub enum BinOp {
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum Value {
-    #[display(fmt = "{}", "_0")] Bool(bool),
-    #[display(fmt = "{}", "_0")] Int(isize)
+    #[display(fmt = "{}", _0)] Bool(bool),
+    #[display(fmt = "{}", _0)] Int(isize)
 }
 
 #[derive(Clone, Debug, Display)]

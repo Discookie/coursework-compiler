@@ -13,3 +13,5 @@ derive_more = "0.99"
 iced-x86 = "1.15"
 lalrpop-util = { version = "0.19", features = ["lexer"] }
 regex = "1.5"
+rustc_index = { git = "https://github.com/rust-lang/rust.git", branch = "stable" }
+rustc_serialize = { git = "https://github.com/rust-lang/rust.git", branch = "stable" }

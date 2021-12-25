@@ -63,7 +63,7 @@ impl RequiresType for BinOp {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeCreation {
     Same,
-    /// None means no requirement
+    /// None means creating None
     Certain(Option<Typename>)
 }
 
@@ -412,21 +412,7 @@ impl TypeResolverVisitor for Statement {
                 Ok(body_ty.and(Typestate::None, "Internal error")?)
             }
 
-            Statement::For { name, from, to, body } => {
-                tcx.push_stack();
-
-                
-                from.resolve_type(tcx)?.assert_type(Some(Typename::Int), "Invalid from number in for")?;
-                to.resolve_type(tcx)?.assert_type(Some(Typename::Int), "Invalid to number in for")?;
-
-                tcx.add_variable(name, Typename::Int)?;
-                
-                let body_ty = body.resolve_type(tcx)?;
-                
-                tcx.pop_stack();
-                Ok(body_ty.and(Typestate::None, "Internal error")?)
-            }
-
+            Statement::For { name, from, to, body } |
             Statement::ForEq { name, from, to, body } => {
                 tcx.push_stack();
 
@@ -440,7 +426,7 @@ impl TypeResolverVisitor for Statement {
                 
                 tcx.pop_stack();
                 Ok(body_ty.and(Typestate::None, "Internal error")?)
-            }
+            },
             Statement::Return { expr } => {
                 Ok(expr.resolve_type(tcx)?)
             },
