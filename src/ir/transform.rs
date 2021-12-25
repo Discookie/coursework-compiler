@@ -14,7 +14,7 @@ use crate::parser::{
 #[derive(Debug, Clone)]
 pub struct TransformCtxt<'a> {
     pub variable_map: HashMap<String, Option<Local>>,
-    pub function_map: &'a HashMap<FnDescriptor, (ast::Function, FunctionId)>,
+    pub function_map: &'a HashMap<FnDescriptor, (Typename, FunctionId)>,
 }
 
 pub fn convert_ty(ty: Option<ast::Typename>) -> Typename {
@@ -106,10 +106,9 @@ pub fn generate_expr(expr: ast::Expr, tcx: &TransformCtxt, function: &mut Functi
 
             let args: Vec<Typename> = locals.iter().map(|&x| function.locals[x]).collect();
 
-            let (fn_data, fn_id) = &tcx.function_map[&FnDescriptor { name, args }];
+            let (ret_ty, fn_id) = &tcx.function_map[&FnDescriptor { name, args }];
 
-            let ret_ty = convert_ty(fn_data.ret);
-            let ret = function.locals.push(ret_ty);
+            let ret = function.locals.push(*ret_ty);
 
             let mut term = Terminator::FnCall {
                 function: *fn_id,
@@ -454,7 +453,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                 }
             };
 
-            for (_, (left, right)) in difference_map.iter_mut() {
+            for (name, (left, right)) in difference_map.iter_mut() {
                 let new_local = function.locals.push(function.locals[*left]);
 
                 block!().statements.push(Statement::Phi (
@@ -463,6 +462,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                 ));
 
                 *right = new_local;
+                tcx.variable_map.insert(name.clone(), Some(new_local));
             }
 
             let mut replace_vals = IndexVec::<Local, Option<Local>>::new();
@@ -537,7 +537,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
     }
 }
 
-pub fn generate_function(ast_function: ast::Function, function_map: &HashMap<FnDescriptor, (ast::Function, FunctionId)>) -> Function {
+pub fn generate_function(ast_function: ast::Function, function_map: &HashMap<FnDescriptor, (Typename, FunctionId)>) -> Function {
     let mut function = Function {
         body: IndexVec::new(),
         locals: IndexVec::with_capacity(ast_function.args.len() + 1),
@@ -566,14 +566,53 @@ pub fn generate_function(ast_function: ast::Function, function_map: &HashMap<FnD
 
 pub fn generate_ir(ast: ast::AST) -> IR {
     let mut functions = IndexVec::<FunctionId, Option<Function>>::new();
+
+    let default_funcs = vec![
+        (ast::FnDescriptor { name: "write".to_string(), args: vec![ast::Typename::Bool] }, None),
+        (ast::FnDescriptor { name: "write".to_string(), args: vec![ast::Typename::Int] }, None),
+        (ast::FnDescriptor { name: "read_bool".to_string(), args: vec![] }, Some(ast::Typename::Bool)),
+        (ast::FnDescriptor { name: "read_int".to_string(), args: vec![] }, Some(ast::Typename::Int)),
+    ];
+
     let function_map = {
         let mut function_map = HashMap::new();
 
-        for func in ast.contents {
+        let main_descriptor = ast::FnDescriptor { name: "main".to_string(), args: Vec::new() };
+
+        { // Main is idx 0, and the read/writes are idx 1-4
+            let main = ast.contents.iter()
+                .find(|x| x.descriptor() == main_descriptor)
+                .expect("no main function");
+
+            functions.push(None);
+            function_map.insert(
+                convert_descriptor(main_descriptor.clone()),
+                (
+                    convert_ty(main.ret),
+                    MAIN_FUNCTION
+                )
+            );
+
+            for (func, ret) in default_funcs.iter() {
+                function_map.insert(
+                    convert_descriptor(func.clone()),
+                    (
+                        convert_ty(*ret),
+                        functions.push(None)
+                    )
+                );
+            }
+        }
+
+        for func in ast.contents.iter() {
+            if func.descriptor() == main_descriptor {
+                continue;
+            }
+
             function_map.insert(
                 convert_descriptor(func.descriptor()),
                 (
-                    func,
+                    convert_ty(func.ret),
                     functions.push(None)
                 )
             );
@@ -582,16 +621,33 @@ pub fn generate_ir(ast: ast::AST) -> IR {
         function_map
     };
 
-    for (_, (func, id)) in function_map.iter() {
-        functions[*id] = Some(generate_function(func.clone(), &function_map));
-    }
+    for func in ast.contents {
+        let id = function_map[&convert_descriptor(func.descriptor())].1;
 
-    let functions = functions.into_iter()
-        .map(|func| func.expect("Fn generation missed a fn"))
-        .collect();
+        functions[id] = Some(generate_function(func.clone(), &function_map));
+    }
+    
     let descriptors = function_map.into_iter()
         .map(|(descriptor, (_, id))| (descriptor, id))
         .collect();
+
+    let mut functions: IndexVec<FunctionId, Function> = functions.into_iter()
+        .map(|func| func.unwrap_or( Function {
+            body: IndexVec::new(),
+            locals: IndexVec::new(),
+            arg_count: 0
+        }))
+        .collect();
+
+    for (idx, (desc, ret)) in default_funcs.iter().enumerate() {
+        let func = &mut functions[(idx + 1).into()];
+        func.locals.push(convert_ty(*ret));
+        func.arg_count = desc.args.len();
+
+        for &arg in desc.args.iter() {
+            func.locals.push(convert_ty(Some(arg)));
+        }
+    }
 
     IR {
         descriptors,
@@ -608,7 +664,7 @@ fn replace_variable_in_blocks(
     let order: Vec<BasicBlockId> = preorder(&function.body, start_block, Some(end_block)).collect();
     macro_rules! replace {
         (local: $val:expr) => {
-            if let Some(to) = replacement[*$val] {
+            if let Some(&Some(to)) = replacement.get(*$val) {
                 *$val = to;
             }
         };
