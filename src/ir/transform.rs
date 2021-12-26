@@ -399,6 +399,9 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                         difference_map
                     };
 
+                    let mut difference_map: Vec<_> = difference_map.into_iter().collect();
+                    difference_map.sort_by_key(|(_, x)| x.first().copied().unwrap_or(Local::new(0)));
+
                     for (k, vals) in difference_map {
                         let new_v = function.locals.push(function.locals[vals[0]]);
 
@@ -453,6 +456,9 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                 }
             };
 
+            let mut difference_map: Vec<_> = difference_map.into_iter().collect();
+            difference_map.sort_by_key(|&(_, (x, _))| x);
+
             for (name, (left, right)) in difference_map.iter_mut() {
                 let new_local = function.locals.push(function.locals[*left]);
 
@@ -467,7 +473,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
 
             let mut replace_vals = IndexVec::<Local, Option<Local>>::new();
 
-            for &(left, new) in difference_map.values() {
+            for (_, (left, new)) in difference_map.into_iter() {
                 replace_vals.ensure_contains_elem(left, || None);
                 replace_vals[left] = Some(new);
             }
