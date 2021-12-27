@@ -158,8 +158,13 @@ pub enum Statement {
     UnaryOp(Local, UnaryOp, Value),
     #[display(fmt = "{} = {} {} {}", _0, _2, _1, _3)]
     BinOp(Local, BinOp, Value, Value),
-    #[display(fmt = "{} <- phi({})", _0, "format_comma(_1)")]
-    Phi(Local, Vec<Local>)
+    #[display(
+        fmt = "{} <- phi({})    [{}]",
+        _0,
+        "format_comma(&_1.iter().map(|(x, _)| x).collect())",
+        "format_comma(&_1.iter().map(|(_, x)| x).collect())",
+    )]
+    Phi(Local, Vec<(Local, BasicBlockId)>)
 }
 
 #[derive(Debug, Display)]

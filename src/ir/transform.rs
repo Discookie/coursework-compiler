@@ -358,12 +358,12 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
 
                     function.body[end_then_block].terminator = Terminator::Goto(final_block);
 
-                    let else_block = if let Some((else_block, end_else_block)) = else_blocks {
+                    let (else_block, end_else_block) = if let Some((else_block, end_else_block)) = else_blocks {
                         function.body[end_else_block].terminator = Terminator::Goto(final_block);
 
-                        else_block
+                        (else_block, end_else_block)
                     } else {
-                        final_block
+                        (final_block, block)
                     };
 
                     block!().terminator = Terminator::If {
@@ -389,7 +389,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                         
                             match vals {
                                 (Some(l), Some(r)) if l != r => {
-                                    difference_map.insert(k.clone(), vec![l, r]);
+                                    difference_map.insert(k.clone(), vec![(l, end_then_block), (r, end_else_block)]);
                                 },
                                 (Some(_), Some(_)) => continue,
                                 _ => panic!("asymmetric var assignment")
@@ -400,10 +400,10 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                     };
 
                     let mut difference_map: Vec<_> = difference_map.into_iter().collect();
-                    difference_map.sort_by_key(|(_, x)| x.first().copied().unwrap_or(Local::new(0)));
+                    difference_map.sort_by_key(|(_, x)| x.first().copied().unwrap_or((RETURN_PLACE, ENTRY_POINT)));
 
                     for (k, vals) in difference_map {
-                        let new_v = function.locals.push(function.locals[vals[0]]);
+                        let new_v = function.locals.push(function.locals[vals[0].0]);
 
                         block!().statements.push(Statement::Phi(new_v, vals));
                         tcx.variable_map.insert(k, Some(new_v));
@@ -420,6 +420,8 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
 
             let mut term = Terminator::Goto(cond_block);
             mem::swap(&mut term, &mut block!().terminator);
+
+            let start_block = block;
 
             block = cond_block;
             
@@ -450,7 +452,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
             
                 match vals {
                     (Some(l), Some(r)) if l != r => {
-                        difference_map.insert(k.clone(), (l, r));
+                        difference_map.insert(k.clone(), ((l, start_block), (r, end_while_block)));
                     },
                     _ => continue
                 }
@@ -460,22 +462,22 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
             difference_map.sort_by_key(|&(_, (x, _))| x);
 
             for (name, (left, right)) in difference_map.iter_mut() {
-                let new_local = function.locals.push(function.locals[*left]);
+                let new_local = function.locals.push(function.locals[left.0]);
 
                 block!().statements.push(Statement::Phi (
                     new_local,
                     vec![*left, *right]
                 ));
 
-                *right = new_local;
+                right.0 = new_local;
                 tcx.variable_map.insert(name.clone(), Some(new_local));
             }
 
             let mut replace_vals = IndexVec::<Local, Option<Local>>::new();
 
             for (_, (left, new)) in difference_map.into_iter() {
-                replace_vals.ensure_contains_elem(left, || None);
-                replace_vals[left] = Some(new);
+                replace_vals.ensure_contains_elem(left.0, || None);
+                replace_vals[left.0] = Some(new.0);
             }
 
             replace_variable_in_blocks(
@@ -701,7 +703,7 @@ fn replace_variable_in_blocks(
                 Statement::Phi(local, values) => {
                     replace!(local: local);
 
-                    for loc in values.iter_mut() {
+                    for (loc, _) in values.iter_mut() {
                         replace!(local: loc);
                     }
                 }
