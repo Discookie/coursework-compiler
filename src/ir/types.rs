@@ -110,7 +110,8 @@ pub struct FnDescriptor {
 #[derive(Debug)]
 pub struct BasicBlock {
     pub statements: Vec<Statement>,
-    pub terminator: Terminator
+    pub terminator: Terminator,
+    pub unreachable: bool
 }
 
 impl fmt::Display for BasicBlock {
@@ -129,7 +130,8 @@ impl BasicBlock {
     pub fn new(terminator: Terminator) -> BasicBlock {
         BasicBlock {
             statements: Vec::new(),
-            terminator
+            terminator,
+            unreachable: false
         }
     }
 }

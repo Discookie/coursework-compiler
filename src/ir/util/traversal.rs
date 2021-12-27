@@ -56,8 +56,7 @@ impl<'a> Iterator for Preorder<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // Half, because at most 2 preds exist for every BB
-        (self.worklist.len() / 2, Some(self.body.len() - self.visited.count()))
+        (0, Some(self.body.len() - self.visited.count()))
     }
 }
 
