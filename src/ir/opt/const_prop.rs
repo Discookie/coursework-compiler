@@ -252,23 +252,23 @@ impl ConstantPropagation {
                         }
                     },
                     Terminator::FnCall { ret, next_block, .. } => {
-                        if let &Some(target) = ret {
-                            eval_prop!(early_return target);
-
-                            let target_state = ConstState::None;
-
-                            eval_prop!(target_state target, target_state);
-                        }
-
                         if let &Some(next) = next_block {
                             if (!cfg_processed[$block].contains(&next)) {
                                 cfg_worklist.push(($block, next));
                             }
                         }
+
+                        if let &Some(target) = ret {
+                            eval_prop!(early_return target);
+                            
+                            let target_state = ConstState::None;
+                            
+                            eval_prop!(target_state target, target_state);
+                        }
                     },
                     &Terminator::If{ cond, then_block, else_block } => {
                         if let ConstState::None = term_types[$block] {
-                            break;
+                            continue;
                         }
 
                         if term_types[$block] != local_types[cond] {
@@ -306,9 +306,8 @@ impl ConstantPropagation {
 
         while !cfg_worklist.is_empty() || !ssa_worklist.is_empty() {
             if let Some((cfg_from, cfg_to)) = cfg_worklist.pop() {
-                let do_cond_evals = cfg_processed[cfg_to].is_empty();
                 if cfg_processed[cfg_from].insert(cfg_to) {
-                    if do_cond_evals {
+                    if cfg_to == ENTRY_POINT || cfg_processed[cfg_to].insert(cfg_to) {
                         for stmt in func.body[cfg_to].statements.iter() {
                             eval_prop!(stmt stmt, cfg_to);
                         }
