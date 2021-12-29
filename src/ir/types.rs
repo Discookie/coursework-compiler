@@ -196,13 +196,13 @@ pub enum Terminator {
 
 }
 
-#[derive(Clone, Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum UnaryOp {
     #[display(fmt = "-")] Neg,
     #[display(fmt = "!")] Not,
 }
 
-#[derive(Clone, Debug, Display, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 pub enum BinOp {
     #[display(fmt = "||")] Or,
     #[display(fmt = "&&")] And,

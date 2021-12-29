@@ -11,5 +11,7 @@ fn transform_simple() {
 
     let ir = generate_ir(ast);
 
+    eprintln!("{}", ir);
+
     assert_eq!(ir.to_string(), include_str!("../../../outputs/simple.lasm").replace("\r", ""), "IR repr not updated");
 }
