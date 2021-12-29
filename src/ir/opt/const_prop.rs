@@ -120,7 +120,7 @@ fn eval_binop(op: BinOp, left: ConstState, right: ConstState) -> ConstState {
 
 pub struct ConstantPropagation {
     local_types: IndexVec<Local, ConstState>,
-    blocks_touched: IndexVec<BasicBlockId, bool>,
+    blocks_visited: IndexVec<BasicBlockId, bool>,
 }
 
 impl ConstantPropagation {
@@ -351,11 +351,11 @@ impl ConstantPropagation {
             }
         }
 
-        let blocks_touched = cfg_processed.into_iter().map(|set| !set.is_empty()).collect();
+        let blocks_visited = cfg_processed.into_iter().map(|set| !set.is_empty()).collect();
 
         ConstantPropagation {
             local_types,
-            blocks_touched
+            blocks_visited
         }
     }
 
@@ -373,7 +373,8 @@ impl ConstantPropagation {
         }
 
         for (bb, block) in func.body.iter_enumerated_mut() {
-            if !self.blocks_touched[bb] {
+            if !self.blocks_visited[bb] {
+                *block = BasicBlock::new(Terminator::Return);
                 block.unreachable = true;
                 continue;
             }
@@ -401,7 +402,7 @@ impl ConstantPropagation {
                         replace!(right);
                     }
                     Statement::Phi(_, locals) => {
-                        locals.retain(|(_, bb)| self.blocks_touched[*bb]);
+                        locals.retain(|(_, bb)| self.blocks_visited[*bb]);
                     }
                 }
             }
