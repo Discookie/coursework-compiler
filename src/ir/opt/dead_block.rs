@@ -2,7 +2,7 @@ use std::mem;
 
 use rustc_index::vec::*;
 
-use crate::ir::{types::*, util::{traversal::{ReversePostorder, Postorder}, graphs::CFGGraph}};
+use crate::ir::{types::*, util::{traversal::{ReversePostorder, Preorder}, graphs::CFGGraph}};
 
 // Uses BasicBlock.unreachable for removed blocks.
 pub struct DeadBlockElimination {
@@ -24,7 +24,7 @@ impl DeadBlockElimination {
 
         for (bb, block) in func.body.iter_enumerated() {
             if let &Terminator::Goto(suc) = &block.terminator {
-                if cfg.to_block(suc).len() == 1 {
+                if cfg.to_block(suc).len() == 1 ||  block.statements.len() == 0 {
                     forward_merged_blocks[bb] = Some(suc);
                 }
             }
@@ -78,16 +78,23 @@ impl DeadBlockElimination {
         for bb in rpo {
             if let Some(target) = self.forward_merged_blocks[bb] {
                 let mut target_body = func.body[bb].statements.clone();
+
+                if target_body.len() == 0 {
+                    continue;
+                }
+
                 mem::swap(&mut func.body[target].statements, &mut target_body);
                 func.body[target].statements.extend(target_body.into_iter());
             }
         }
 
-        let postorder: Vec<_> = Postorder::new(&func.body, ENTRY_POINT, None).collect();
+        let mut reverse_preorder: Vec<_> = Preorder::new(&func.body, ENTRY_POINT, None).collect();
+        reverse_preorder.reverse();
+
         let mut block_fwdrefs = IndexVec::from_fn_n(|idx: BasicBlockId| idx, func.body.len());
 
         // Jump locations
-        for bb in postorder {
+        for bb in reverse_preorder {
             if let Some(target) = self.forward_merged_blocks[bb] {
                 func.body[bb].unreachable = true;
                 block_fwdrefs[bb] = block_fwdrefs[target];
@@ -109,11 +116,12 @@ impl DeadBlockElimination {
             }
         }
 
+        
         // Get new ids of unreachable blocks
         let new_ids = {
             let mut new_ids: IndexVec<BasicBlockId, _> = func.body.iter_enumerated()
-                .filter_map(|(bb, block)| if block.unreachable { Some(bb) } else { None })
-                .collect();
+            .filter_map(|(bb, block)| if !block.unreachable { Some(bb) } else { None })
+            .collect();
 
             // Swap the new entrypoint into place before proceeding
             let entry_idx = *new_ids.iter().enumerate()
