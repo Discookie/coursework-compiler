@@ -121,5 +121,68 @@ impl DeadCodeElimination {
                 }
             }
         }
+
+        let local_refs = IndexVec::from_fn_n(|idx: Local| idx, func.locals.len());
+
+        let local_refs: IndexVec<Local, Local> = local_refs.iter()
+            .filter(|&local| local.as_usize() <= func.arg_count || self.locals_visited.contains(*local))
+            .copied()
+            .collect();
+
+        let mut local_backrefs = IndexVec::from_fn_n(|idx: Local| idx, func.locals.len());
+
+        for (new, local) in local_refs.iter_enumerated() {
+            local_backrefs[*local] = new;
+        }
+
+        for block in func.body.iter_mut() {
+            for stmt in block.statements.iter_mut() {
+                match stmt {
+                    Statement::Copy(target, source) |
+                    Statement::UnaryOp(target, _, source) => {
+                        *target = local_backrefs[*target];
+
+                        if let Value::Local(source) = source {
+                            *source = local_backrefs[*source];
+                        }
+                    },
+                    Statement::BinOp(target, _, left, right) => {
+                        *target = local_backrefs[*target];
+
+                        if let Value::Local(source) = left {
+                            *source = local_backrefs[*source];
+                        }
+
+                        if let Value::Local(source) = right {
+                            *source = local_backrefs[*source];
+                        }
+                    },
+                    Statement::Phi(target, sources) => {
+                        *target = local_backrefs[*target];
+
+                        for (source, _) in sources {
+                            *source = local_backrefs[*source];
+                        }
+                    },
+                }
+            }
+
+            match &mut block.terminator {
+                Terminator::FnCall { args, ret, .. } => {
+                    for arg in args {
+                        *arg = local_backrefs[*arg];
+                    }
+
+                    if let Some(ret) = ret {
+                        *ret = local_backrefs[*ret];
+                    }
+                },
+                Terminator::If { cond, .. } => {
+                    *cond = local_backrefs[*cond];
+                },
+                Terminator::Goto(_) |
+                Terminator::Return => {},
+            }
+        }
     }
 }
