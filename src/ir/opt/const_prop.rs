@@ -144,8 +144,8 @@ impl ConstantPropagation {
 
         cfg_worklist.push((ENTRY_POINT, ENTRY_POINT));
 
-        for i in 0..=4 {
-            local_types[Local::new(i)] = ConstState::None;
+        for arg in 0..=func.arg_count {
+            local_types[Local::new(arg)] = ConstState::None;
         }
 
         macro_rules! eval_prop {
