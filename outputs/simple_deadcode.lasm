@@ -66,29 +66,22 @@ locals:
     _3: int
     _4: int
     _5: int
-    _6: int
-    _7: int
-    _8: int
-    _9: bool
+    _6: bool
+    _7: bool
+    _8: bool
+    _9: int
     _10: int
-    _11: bool
-    _12: bool
+    _11: int
+    _12: int
     _13: int
     _14: int
     _15: int
     _16: int
     _17: int
-    _18: int
+    _18: bool
     _19: int
     _20: int
     _21: int
-    _22: int
-    _23: int
-    _24: int
-    _25: bool
-    _26: int
-    _27: int
-    _28: int
 
 bb0:
     _4 = 2

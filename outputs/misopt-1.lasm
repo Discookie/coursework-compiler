@@ -65,10 +65,7 @@ locals:
     _4: int
     _5: int
     _6: int
-    _7: int
-    _8: int
-    _9: int
-    _10: bool
+    _7: bool
 
 bb0:
     _5 <- phi(_1, _4)    [entry, bb0]

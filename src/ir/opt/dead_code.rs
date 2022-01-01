@@ -28,7 +28,6 @@ impl DeadCodeElimination {
                 let _: Local = $local;
 
                 if !locals_visited.contains($local) {
-                    eprintln!("Marking {}", $local);
                     worklist.push($local);
                     locals_visited.insert($local);
                 }
@@ -63,7 +62,6 @@ impl DeadCodeElimination {
         }
 
         while let Some(local) = worklist.pop() {
-            eprintln!("Popping {}", local);
             let (block, def_idx) = ssa.define(local);
 
             if let Some(idx) = def_idx {
@@ -184,5 +182,10 @@ impl DeadCodeElimination {
                 Terminator::Return => {},
             }
         }
+
+        func.locals = func.locals.iter_enumerated()
+            .filter(|&(local, _)| local.as_usize() <= func.arg_count || self.locals_visited.contains(local))
+            .map(|(_, ty)| *ty)
+            .collect();
     }
 }
