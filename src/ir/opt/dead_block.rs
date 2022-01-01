@@ -2,12 +2,12 @@ use std::mem;
 
 use rustc_index::vec::*;
 
-use crate::ir::{types::*, util::{traversal::{ReversePostorder, Preorder}, graphs::CFGGraph}};
+use crate::ir::{types::*, util::{traversal::{ReversePostorder, Preorder, Postorder}, graphs::CFGGraph}};
 
 // Uses BasicBlock.unreachable for removed blocks.
 pub struct DeadBlockElimination {
     forward_merged_blocks: IndexVec<BasicBlockId, Option<BasicBlockId>>,
-    phi_replacements: IndexVec<Local, Option<Vec<(Local, BasicBlockId)>>>
+    phi_replacements: IndexVec<Local, Option<Vec<(Local, Option<BasicBlockId>)>>>
 }
 
 impl DeadBlockElimination {
@@ -30,13 +30,26 @@ impl DeadBlockElimination {
             }
         }
 
-        let mut block_backrefs = IndexVec::from_fn_n(|idx: BasicBlockId| vec![idx], func.body.len());
+        let mut block_backrefs = IndexVec::from_fn_n(|idx: BasicBlockId| vec![Some(idx)], func.body.len());
 
-        for bb in ReversePostorder::new(&func.body, ENTRY_POINT, None) {
+        // Going backwards is a reverse postorder traversal
+        let mut worklist: Vec<_> = Postorder::new(&func.body, ENTRY_POINT, None).collect();
+
+        while let Some(bb) = worklist.pop() {
             if forward_merged_blocks[bb].is_some() {
-                block_backrefs[bb] = cfg.to_block(bb).iter()
+                let new_backrefs: Vec<_> = cfg.to_block(bb).iter()
                     .flat_map(|pred| block_backrefs[*pred].iter().copied())
-                    .collect()
+                    .collect();
+
+                if block_backrefs[bb] != new_backrefs {
+                    block_backrefs[bb] = new_backrefs;
+
+                    worklist.extend(cfg.from_block(bb));
+
+                    if bb == ENTRY_POINT {
+                        block_backrefs[bb].push(None);
+                    }
+                }
             }
         }
 
@@ -45,7 +58,13 @@ impl DeadBlockElimination {
                 if let Statement::Phi(target, sources) = stmt {
                     let new_sources = sources.iter()
                         .flat_map(|(local, source)| {
-                            block_backrefs[*source].iter().map(|pred| (*local, *pred))
+                            let mut ret = vec![(*local, *source)];
+                            if let Some(src) = source {
+                                ret = block_backrefs[*src].iter()
+                                    .map(|pred| (*local, *pred))
+                                    .collect();
+                            }
+                            ret.into_iter()
                         }).collect();
 
                     if sources != &new_sources {
@@ -98,6 +117,9 @@ impl DeadBlockElimination {
             if let Some(target) = self.forward_merged_blocks[bb] {
                 func.body[bb].unreachable = true;
                 block_fwdrefs[bb] = block_fwdrefs[target];
+                if bb == ENTRY_POINT {
+
+                }
             }
         }
 
@@ -151,7 +173,9 @@ impl DeadBlockElimination {
             for stmt in block.statements.iter_mut() {
                 if let Statement::Phi(_, sources) = stmt {
                     for (_, block) in sources {
-                        *block = old_ids[*block];
+                        if let Some(block) = block {
+                            *block = old_ids[*block];
+                        }
                     }
                 }
             }

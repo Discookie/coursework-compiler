@@ -179,14 +179,14 @@ impl ConstantPropagation {
             }};
             (phi $target:expr, $source:expr, $block:expr) => {{
                 let _: Local = $target;
-                let _: &Vec<(Local, BasicBlockId)> = $source;
+                let _: &Vec<(Local, Option<BasicBlockId>)> = $source;
                 let _: BasicBlockId = $block;
 
                 eval_prop!(early_return $target);
 
                 let collection_iter = $source.iter()
                     .filter(|&&(_, bb)| {
-                        cfg_processed[bb].contains(&$block)
+                        bb.map(|bb| cfg_processed[bb].contains(&$block)).unwrap_or(true)
                     }).map(|&(local, _)| local_types[local]);
 
                 let target_state = collection_iter.fold(
@@ -401,7 +401,7 @@ impl ConstantPropagation {
                         replace!(right);
                     }
                     Statement::Phi(_, locals) => {
-                        locals.retain(|(_, bb)| self.blocks_visited[*bb]);
+                        locals.retain(|(_, bb)| bb.map(|bb| self.blocks_visited[bb]).unwrap_or(true));
                     }
                 }
             }

@@ -1,0 +1,89 @@
+descriptors:
+    fn0: Fn(main, ())
+    fn1: Fn(write, (bool))
+    fn2: Fn(write, (int))
+    fn3: Fn(read_bool, ())
+    fn4: Fn(read_int, ())
+    fn5: Fn(misopt_1, (int, int))
+
+functions:
+
+fn0: fn(0 args) -> none {
+locals:
+    _0: none
+    _1: int
+    _2: int
+    _3: int
+
+bb0:
+    call _1 <- fn4(), bb1
+
+bb1:
+    _2 = 20
+    call _3 <- fn5(_1, _2), bb2
+
+bb2:
+    call fn2(_3), bb3
+
+bb3:
+    ret
+
+}
+
+fn1: fn(1 args) -> none {
+locals:
+    _0: none
+    _1: bool
+
+}
+
+fn2: fn(1 args) -> none {
+locals:
+    _0: none
+    _1: int
+
+}
+
+fn3: fn(0 args) -> bool {
+locals:
+    _0: bool
+
+}
+
+fn4: fn(0 args) -> int {
+locals:
+    _0: int
+
+}
+
+fn5: fn(2 args) -> int {
+locals:
+    _0: int
+    _1: int
+    _2: int
+    _3: int
+    _4: int
+    _5: int
+    _6: int
+    _7: int
+    _8: int
+    _9: int
+    _10: bool
+
+bb0:
+    _5 <- phi(_1, _4)    [entry, bb0]
+    _6 <- phi(_2, _3)    [entry, bb0]
+    _7 = _6 > 0
+    if _7, bb0, bb2
+
+bb1:
+    _3 = _6 - 1
+    _4 = _5 + 1
+    goto bb1
+
+bb2:
+    _0 = _5
+    ret
+
+}
+

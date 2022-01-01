@@ -1,0 +1,11 @@
+fn misopt_1(a: int, b: int) -> int {
+    while b > 0 {
+        b -= 1;
+        a += 1;
+    }
+    return a;
+}
+
+fn main() {
+    write(misopt_1(read_int(), 20));
+}

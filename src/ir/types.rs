@@ -162,9 +162,9 @@ pub enum Statement {
         fmt = "{} <- phi({})    [{}]",
         _0,
         "format_comma(&_1.iter().map(|(x, _)| x).collect())",
-        "format_comma(&_1.iter().map(|(_, x)| x).collect())",
+        "format_comma_opt(&_1.iter().map(|(_, x)| *x).collect(), \"entry\")",
     )]
-    Phi(Local, Vec<(Local, BasicBlockId)>)
+    Phi(Local, Vec<(Local, Option<BasicBlockId>)>)
 }
 
 #[derive(Debug, Display)]
@@ -234,6 +234,13 @@ pub struct IRCtxt {
 fn format_comma<T: std::fmt::Display>(comma: &Vec<T>) -> String {
     comma.iter()
         .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+fn format_comma_opt<T: std::fmt::Display>(comma: &Vec<Option<T>>, default: &str) -> String {
+    comma.iter()
+        .map(|x| x.as_ref().map(|x| x.to_string()).unwrap_or_else(|| default.to_string()))
         .collect::<Vec<String>>()
         .join(", ")
 }

@@ -389,7 +389,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                         
                             match vals {
                                 (Some(l), Some(r)) if l != r => {
-                                    difference_map.insert(k.clone(), vec![(l, end_then_block), (r, end_else_block)]);
+                                    difference_map.insert(k.clone(), vec![(l, Some(end_then_block)), (r, Some(end_else_block))]);
                                 },
                                 (Some(_), Some(_)) => continue,
                                 _ => panic!("asymmetric var assignment")
@@ -400,7 +400,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
                     };
 
                     let mut difference_map: Vec<_> = difference_map.into_iter().collect();
-                    difference_map.sort_by_key(|(_, x)| x.first().copied().unwrap_or((RETURN_PLACE, ENTRY_POINT)));
+                    difference_map.sort_by_key(|(_, x)| x.first().copied().unwrap_or((RETURN_PLACE, Some(ENTRY_POINT))));
 
                     for (k, vals) in difference_map {
                         let new_v = function.locals.push(function.locals[vals[0].0]);
@@ -452,7 +452,7 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
             
                 match vals {
                     (Some(l), Some(r)) if l != r => {
-                        difference_map.insert(k.clone(), ((l, start_block), (r, end_while_block)));
+                        difference_map.insert(k.clone(), ((l, Some(start_block)), (r, Some(end_while_block))));
                     },
                     _ => continue
                 }
