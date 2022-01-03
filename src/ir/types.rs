@@ -107,6 +107,26 @@ pub struct FnDescriptor {
     pub args: Vec<Typename>,
 }
 
+impl FnDescriptor {
+    pub fn mangled_name(&self) -> String {
+        if self.args.len() == 0 {
+            self.name.clone()
+        } else {
+            format!(
+                "_{}_{}",
+                self.args.iter().fold(String::new(), |acc, arg| {
+                    acc + match arg {
+                        Typename::Int => "i",
+                        Typename::Bool => "b",
+                        Typename::None => "n",
+                    }
+                }),
+                self.name.clone()
+            )
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct BasicBlock {
     pub statements: Vec<Statement>,
