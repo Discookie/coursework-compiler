@@ -89,9 +89,9 @@ pub enum Statement {
         to: Expr,
         body: Vec<Statement>
     },
-    #[display(fmt = "return {};", expr)]
+    #[display(fmt = "return{};", "if let Some(expr) = expr { format!(\" {}\", expr) } else { String::new() }" )]
     Return {
-        expr: Expr,
+        expr: Option<Expr>,
     },
     #[display(fmt = "{{{}}}", "format_block(body)")]
     Block {

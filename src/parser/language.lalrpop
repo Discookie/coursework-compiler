@@ -47,7 +47,7 @@ WhileStmt: Statement = "while" <cond:Expr> <body:Block<Statement>> => Statement:
 ForStmt: Statement = "for" <name:Name> "in" <from:Expr> ".." <to:Expr> <body:Block<Statement>> => Statement::For {<>};
 ForEqStmt: Statement = "for" <name:Name> "in" <from:Expr> "..=" <to:Expr> <body:Block<Statement>> => Statement::ForEq {<>};
 
-ReturnStmt: Statement = "return" <expr:Expr> ";" => Statement::Return {<>};
+ReturnStmt: Statement = "return" <expr:Expr?> ";" => Statement::Return {<>};
 
 // Expressions, prioritized
 

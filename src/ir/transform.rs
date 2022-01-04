@@ -223,12 +223,14 @@ pub fn generate_stmt(stmt: ast::Statement, tcx: &mut TransformCtxt, function: &m
         }
 
         ast::Statement::Return { expr } => { 
-            unpack!(let new_local = generate_expr(expr));
-
-            block!().statements.push(Statement::Copy(
-                Local::new(0),
-                Value::Local(new_local)
-            ));
+            if let Some(expr) = expr {
+                unpack!(let new_local = generate_expr(expr));
+    
+                block!().statements.push(Statement::Copy(
+                    Local::new(0),
+                    Value::Local(new_local)
+                ));
+            }
 
             block!().terminator = Terminator::Return;
 

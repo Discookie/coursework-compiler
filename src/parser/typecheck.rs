@@ -428,7 +428,11 @@ impl TypeResolverVisitor for Statement {
                 Ok(body_ty.and(Typestate::None, "Internal error")?)
             },
             Statement::Return { expr } => {
-                Ok(expr.resolve_type(tcx)?)
+                if let Some(expr) = expr {
+                    Ok(expr.resolve_type(tcx)?)
+                } else {
+                    Ok(Typestate::None)
+                }
             },
             Statement::Block { body } => {
                 Ok(body.resolve_type(tcx)?)
