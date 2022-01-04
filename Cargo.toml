@@ -9,10 +9,9 @@ edition = "2021"
 lalrpop = "0.19"
 
 [dependencies]
+clap = { version = "3.0", features = ["derive"] }
 derive_more = "0.99"
-faerie = "0.16"
 iced-x86 = { version = "1.15", features = ["code_asm"] }
 lalrpop-util = { version = "0.19", features = ["lexer"] }
-regex = "1.5"
 rustc_index = { git = "https://github.com/rust-lang/rust.git", branch = "stable" }
 rustc_serialize = { git = "https://github.com/rust-lang/rust.git", branch = "stable" }
